@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Foundry Electric — Job Walk Estimator</title>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap');
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #f5f4f0;
+    --surface: #ffffff;
+    --surface2: #f0ede6;
+    --border: #ddd9d0;
+    --text: #1a1916;
+    --text2: #6b6860;
+    --accent: #c45a1e;
+    --accent-light: #faede4;
+    --accent-dark: #8a3a0e;
+    --red: #b83232;
+    --header-bg: #1a1916;
+    --header-text: #f5f4f0;
+    --mono: 'IBM Plex Mono', monospace;
+    --sans: 'IBM Plex Sans', system-ui, sans-serif;
+  }
+
+  body { font-family: var(--sans); background: var(--bg); color: var(--text); min-height: 100vh; }
+
+  header {
+    background: var(--header-bg);
+    padding: 0 2rem;
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    position: sticky;
+    top: 0;
+    z-index: 100;
+  }
+
+  .header-left { display: flex; align-items: center; gap: 12px; }
+
+  .logo-mark {
+    width: 28px; height: 28px;
+    background: var(--accent);
+    border-radius: 5px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .header-title { font-size: 13px; font-weight: 600; color: var(--header-text); letter-spacing: 0.04em; text-transform: uppercase; }
+  .header-sub { font-size: 11px; color: #888; margin-left: 6px; font-family: var(--mono); }
+
+  .main { max-width: 860px; margin: 0 auto; padding: 32px 24px 64px; }
+
+  .section-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text2); margin-bottom: 10px; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+
+  .card-header {
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border);
+    display: flex; align-items: center; justify-content: space-between;
+    background: var(--surface2);
+  }
+
+  .card-header-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--text2); }
+
+  .card-body { padding: 20px; }
+
+  textarea {
+    width: 100%; background: var(--bg);
+    border: 1px solid var(--border); border-radius: 6px;
+    color: var(--text); font-family: var(--mono); font-size: 13px; line-height: 1.6;
+    padding: 14px 16px; resize: vertical; min-height: 180px;
+    outline: none; transition: border-color 0.15s;
+  }
+  textarea::placeholder { color: #aaa8a2; font-style: italic; }
+  textarea:focus { border-color: var(--accent); }
+
+  .char-count { font-family: var(--mono); font-size: 10px; color: #aaa; text-align: right; margin-top: 6px; }
+
+  .controls { display: flex; align-items: center; gap: 10px; margin-top: 16px; flex-wrap: wrap; }
+
+  .btn-primary {
+    background: var(--accent); color: #fff; border: none; border-radius: 6px;
+    font-family: var(--sans); font-size: 13px; font-weight: 600; letter-spacing: 0.03em;
+    padding: 9px 24px; cursor: pointer; transition: background 0.15s, transform 0.1s;
+  }
+  .btn-primary:hover:not(:disabled) { background: var(--accent-dark); transform: translateY(-1px); }
+  .btn-primary:disabled { opacity: 0.45; cursor: not-allowed; transform: none; }
+
+  .btn-secondary {
+    background: transparent; color: var(--text2); border: 1px solid var(--border); border-radius: 6px;
+    font-family: var(--sans); font-size: 13px; font-weight: 500;
+    padding: 9px 18px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-secondary:hover { border-color: var(--text2); color: var(--text); }
+
+  .btn-ghost {
+    background: transparent; color: var(--accent); border: 1px solid #e8c4b0; border-radius: 6px;
+    font-family: var(--mono); font-size: 10px; letter-spacing: 0.1em; text-transform: uppercase;
+    padding: 7px 14px; cursor: pointer; transition: all 0.15s;
+  }
+  .btn-ghost:hover { background: var(--accent-light); }
+
+  .status-pill { font-family: var(--mono); font-size: 11px; color: var(--text2); margin-left: auto; }
+  .status-pill.running { color: var(--accent); animation: pulse 1.2s ease-in-out infinite; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  .output-wrapper { display: none; }
+  .output-wrapper.visible { display: block; }
+
+  .output-toolbar { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+
+  .output-body { padding: 24px 28px; }
+
+  .output-body h3 {
+    font-size: 11px; font-family: var(--mono); letter-spacing: 0.14em;
+    text-transform: uppercase; color: var(--accent);
+    margin: 28px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border);
+  }
+  .output-body h3:first-child { margin-top: 0; }
+
+  .output-body h4 { font-size: 11px; font-weight: 600; color: var(--text2); text-transform: uppercase; letter-spacing: 0.08em; margin: 18px 0 6px; }
+
+  .output-body p { font-size: 14px; line-height: 1.7; color: var(--text); margin-bottom: 10px; }
+
+  .output-body ul { list-style: none; padding: 0; margin-bottom: 12px; }
+  .output-body ul li { font-size: 14px; line-height: 1.6; color: var(--text); padding: 5px 0 5px 18px; position: relative; border-bottom: 1px solid #f0ede6; }
+  .output-body ul li::before { content: '→'; position: absolute; left: 0; color: var(--accent); font-size: 12px; }
+
+  .output-body ol { padding-left: 20px; margin-bottom: 12px; }
+  .output-body ol li { font-size: 14px; line-height: 1.6; color: var(--text); padding: 4px 0; }
+
+  .output-body table { width: 100%; border-collapse: collapse; font-family: var(--mono); font-size: 12px; margin: 10px 0 18px; border: 1px solid var(--border); border-radius: 6px; overflow: hidden; }
+  .output-body thead tr { background: var(--surface2); }
+  .output-body th { color: var(--text2); text-transform: uppercase; letter-spacing: 0.1em; font-size: 10px; padding: 9px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+  .output-body tbody tr { border-bottom: 1px solid #f0ede6; transition: background 0.1s; }
+  .output-body tbody tr:last-child { border-bottom: none; }
+  .output-body tbody tr:hover { background: var(--surface2); }
+  .output-body td { padding: 8px 12px; color: var(--text); vertical-align: top; }
+  .output-body td:last-child, .output-body th:last-child { text-align: right; }
+  .output-body tbody tr.cat-header td { background: var(--accent-light); color: var(--accent-dark); font-size: 10px; font-weight: 600; letter-spacing: 0.1em; text-transform: uppercase; padding: 6px 12px; }
+
+  .flag { color: var(--red); }
+  .error-card { background: #fdeaea; border: 1px solid #f5c0c0; border-radius: 8px; padding: 20px; font-family: var(--mono); font-size: 13px; color: var(--red); }
+
+  /* SF Copy Box */
+  .sf-box { background: var(--surface); border: 1px solid var(--border); border-radius: 8px; overflow: hidden; margin-bottom: 20px; }
+  .sf-box-header { padding: 14px 20px; border-bottom: 1px solid var(--border); background: #1a1916; display: flex; align-items: center; justify-content: space-between; }
+  .sf-box-label { font-family: var(--mono); font-size: 10px; letter-spacing: 0.14em; text-transform: uppercase; color: #888; }
+  .sf-box-label span { color: var(--accent); margin-left: 8px; }
+  .sf-textarea { width: 100%; background: #fafaf8; border: none; color: var(--text); font-family: var(--mono); font-size: 12px; line-height: 1.7; padding: 16px 20px; resize: vertical; min-height: 160px; outline: none; display: block; }
+  .sf-textarea:focus { background: #fff; }
+  .sf-box-footer { padding: 10px 20px; border-top: 1px solid var(--border); display: flex; justify-content: flex-end; }
+  .btn-sf-copy { background: var(--accent); color: #fff; border: none; border-radius: 6px; font-family: var(--sans); font-size: 12px; font-weight: 600; padding: 7px 18px; cursor: pointer; transition: background 0.15s; }
+  .btn-sf-copy:hover { background: var(--accent-dark); }
+
+  footer { border-top: 1px solid var(--border); padding: 16px 24px; font-family: var(--mono); font-size: 10px; color: #bbb; display: flex; justify-content: space-between; max-width: 860px; margin: 0 auto; }
+
+  @media (max-width: 600px) {
+    .main { padding: 20px 16px 48px; }
+    .controls { flex-direction: column; align-items: flex-start; }
+    .status-pill { margin-left: 0; }
+    .output-body { padding: 16px; }
+    .output-body td, .output-body th { padding: 6px 8px; font-size: 11px; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-left">
+    <div class="logo-mark">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"/>
+      </svg>
+    </div>
+    <span class="header-title">Foundry Electric</span>
+    <span class="header-sub">Job Walk Estimator</span>
+  </div>
+</header>
+
+<div class="main">
+
+  <div class="card">
+    <div class="card-header">
+      <span class="card-header-label">Job Walk Notes</span>
+    </div>
+    <div class="card-body">
+      <textarea id="transcript" placeholder="Paste or type your job walk notes here — transcript, voice-to-text, field notes, or anything describing the work. The tool extracts scope of work and parts list automatically..."></textarea>
+      <div class="char-count" id="charCount">0 characters</div>
+      <div class="controls">
+        <button class="btn-primary" id="runBtn" onclick="runEstimate()">Run Estimate</button>
+        <button class="btn-secondary" onclick="clearAll()">Clear</button>
+        <span class="status-pill" id="statusMsg"></span>
+      </div>
+    </div>
+  </div>
+
+  <div class="output-wrapper" id="outputWrapper">
+    <!-- Service Fusion copy box -->
+    <div class="sf-box" id="sfBox">
+      <div class="sf-box-header">
+        <span class="sf-box-label">Service Fusion<span>Scope — Paste Ready</span></span>
+      </div>
+      <textarea class="sf-textarea" id="sfTextarea" readonly spellcheck="false"></textarea>
+      <div class="sf-box-footer">
+        <button class="btn-sf-copy" id="copySFBtn" onclick="copySF()">Copy to Service Fusion</button>
+      </div>
+    </div>
+
+    <div class="output-toolbar">
+      <div class="section-label">Full Estimate</div>
+      <button class="btn-ghost" id="copyAllBtn" onclick="copyOutput()">Copy All</button>
+    </div>
+    <div class="card">
+      <div class="output-body" id="outputBody"></div>
+    </div>
+  </div>
+
+</div>
+
+<footer>
+  <span>FOUNDRY ELECTRIC LLC — JOB WALK ESTIMATOR</span>
+  <span>ESTIMATING v1.0</span>
+</footer>
+
+<script>
+const API_KEY = '%%ANTHROPIC_API_KEY%%';
+ a licensed journeyman electrician and estimator with 15+ years of residential, commercial, and industrial experience working for Foundry Electric LLC in Park City/Midway, Utah. A field technician has walked a job site and recorded notes. Your job is to transform that raw input into a clean estimate package: a customer-facing scope of work and a precise line-item parts list with quantities.
+
+The technician speaks in trade language and is specific about part names and sizes. Trust what they say. If they call out a part, use it. If they give a count, use it. Do not substitute or generalize unless a detail is genuinely missing.
+
+Always produce these sections in order:
+
+### 1. JOB SUMMARY
+2-4 sentences: property type, general scope, key constraints or conditions.
+
+### 2. SCOPE OF WORK
+Customer-facing bulleted list. Present tense. One bullet per task. No part numbers or quantities. Group by system when multiple systems are present (Service/Panel Work, Branch Circuits, Lighting, Devices & Receptacles, Heat Tape/Heat Trace, Low Voltage/Special Systems, Miscellaneous). Omit empty groups. Flag unclear items with: [VERIFY: reason]
+
+### 3. PARTS LIST
+Internal material takeoff as a markdown table: | # | Description | Spec / Notes | Qty | Unit |
+One row per SKU. Use exact part names called out. Use ~ prefix for estimated quantities. Units: ea/ft/roll/box. Group rows by category with bold header rows (Wire & Cable, Conduit & Fittings, Panel & Breakers, Devices & Receptacles, Lighting & Fixtures, Heat Tape & Controls, Connectors & Terminations, Mounting & Support Hardware, Miscellaneous). Flag uncertain specs with [VERIFY].
+
+### 4. OPEN QUESTIONS / FLAGS (omit if none)
+Numbered list of follow-up items.
+
+Key rules: Don't invent scope. Don't strip detail. Clean transcript silently. Flag missing data, don't guess footage. Trust trade language. Scope is customer-facing; parts list is internal.
+
+Interpretation: "panel's loaded" = near capacity; "home run/its own circuit" = dedicated branch circuit; "cans/pot lights/recessed" = recessed lighting; "fish the walls" = concealed wiring; "stub it out" = rough-in only; "sub/subpanel" = sub-panel; "LT/liquidtight" = liquidtight flex conduit; "strut/unistrut" = strut channel; "self-reg" = self-regulating heat tape; "GFEP thermostat" = heat tape controller.
+
+Parts rules: Unknown wire lengths = flag with [VERIFY], don't guess; stated lengths +10% waste; recessed light = 1 fixture + 1 trim + 1 connector; GFCI/standard receptacle = 1 device + 1 box + 1 plate; single-pole switch = 1 switch + 1 box + 1 plate; EMT +10% fittings; heat tape = footage +10% + 1 thermostat per zone.`;
+
+// DOM refs
+const inputTextarea = document.getElementById('transcript');
+const runBtn       = document.getElementById('runBtn');
+const statusMsg    = document.getElementById('statusMsg');
+const outputWrapper= document.getElementById('outputWrapper');
+const outputBody   = document.getElementById('outputBody');
+const sfTextarea   = document.getElementById('sfTextarea');
+const charCount    = document.getElementById('charCount');
+let lastOutputText = '';
+
+// Character counter
+inputTextarea.addEventListener('input', () => {
+  charCount.textContent = inputTextarea.value.length.toLocaleString() + ' characters';
+});
+
+// ── CLEAR ──────────────────────────────────────────────
+function clearAll() {
+  inputTextarea.value = '';
+  charCount.textContent = '0 characters';
+  outputWrapper.classList.remove('visible');
+  outputBody.innerHTML = '';
+  sfTextarea.value = '';
+  statusMsg.textContent = '';
+  statusMsg.className = 'status-pill';
+  lastOutputText = '';
+}
+
+// ── RUN ────────────────────────────────────────────────
+async function runEstimate() {
+  const transcript = inputTextarea.value.trim();
+  if (!transcript) { statusMsg.textContent = 'Paste notes first.'; return; }
+
+  runBtn.disabled = true;
+  statusMsg.className = 'status-pill running';
+  statusMsg.textContent = 'Processing...';
+  outputWrapper.classList.remove('visible');
+
+  try {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY, 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 4000,
+        system: SYSTEM_PROMPT,
+        messages: [{ role: 'user', content: 'Here are the job walk notes:\n\n' + transcript }]
+      })
+    });
+
+    const data = await response.json();
+    if (!response.ok) throw new Error(data.error?.message || 'API error ' + response.status);
+
+    const text = data.content?.find(b => b.type === 'text')?.text || '';
+    lastOutputText = text;
+    outputBody.innerHTML = renderMarkdown(text);
+    sfTextarea.value = extractSFScope(text);
+    outputWrapper.classList.add('visible');
+    outputWrapper.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    statusMsg.className = 'status-pill';
+    statusMsg.textContent = 'Done.';
+    setTimeout(() => { statusMsg.textContent = ''; }, 3000);
+
+  } catch (err) {
+    outputBody.innerHTML = '<div class="error-card">Error: ' + err.message + '</div>';
+    sfTextarea.value = '';
+    outputWrapper.classList.add('visible');
+    statusMsg.className = 'status-pill';
+    statusMsg.textContent = 'Error — see output.';
+  }
+
+  runBtn.disabled = false;
+}
+
+// ── CLIPBOARD (works in sandboxed iframes) ─────────────
+function copyToClipboard(text, btnEl, successLabel, originalLabel) {
+  // Try modern API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => flashBtn(btnEl, successLabel, originalLabel)).catch(() => fallbackCopy(text, btnEl, successLabel, originalLabel));
+  } else {
+    fallbackCopy(text, btnEl, successLabel, originalLabel);
+  }
+}
+
+function fallbackCopy(text, btnEl, successLabel, originalLabel) {
+  const el = document.createElement('textarea');
+  el.value = text;
+  el.style.cssText = 'position:fixed;top:-9999px;left:-9999px;opacity:0;';
+  document.body.appendChild(el);
+  el.focus();
+  el.select();
+  try {
+    document.execCommand('copy');
+    flashBtn(btnEl, successLabel, originalLabel);
+  } catch (e) {
+    flashBtn(btnEl, 'Failed — select manually', originalLabel);
+  }
+  document.body.removeChild(el);
+}
+
+function flashBtn(btnEl, successLabel, originalLabel) {
+  btnEl.textContent = successLabel;
+  setTimeout(() => { btnEl.textContent = originalLabel; }, 2000);
+}
+
+function copyOutput() {
+  const btn = document.getElementById('copyAllBtn');
+  copyToClipboard(lastOutputText, btn, 'Copied!', 'Copy All');
+}
+
+function copySF() {
+  const btn = document.getElementById('copySFBtn');
+  copyToClipboard(sfTextarea.value, btn, 'Copied!', 'Copy to Service Fusion');
+}
+
+// ── MARKDOWN RENDERER ──────────────────────────────────
+function renderMarkdown(text) {
+  const esc = s => s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const lines = text.split('\n');
+  let html = '', tableRows = [], inList = false, inOL = false;
+
+  const flushTable = () => {
+    if (!tableRows.length) return;
+    html += '<table><thead>';
+    let bodyOpen = false;
+    tableRows.forEach((row, i) => {
+      if (row.isSep) return;
+      if (i === 0) {
+        html += '<tr>' + row.cells.map(c => '<th>' + inlineMd(esc(c)) + '</th>').join('') + '</tr></thead><tbody>';
+        bodyOpen = true;
+      } else if (row.isCat) {
+        if (!bodyOpen) { html += '</thead><tbody>'; bodyOpen = true; }
+        html += '<tr class="cat-header"><td colspan="5">' + esc(row.label) + '</td></tr>';
+      } else {
+        if (!bodyOpen) { html += '</thead><tbody>'; bodyOpen = true; }
+        html += '<tr>' + row.cells.map(c => '<td>' + inlineMd(esc(c)) + '</td>').join('') + '</tr>';
+      }
+    });
+    if (!bodyOpen) html += '</thead><tbody>';
+    html += '</tbody></table>';
+    tableRows = [];
+  };
+
+  const flushLists = () => {
+    if (inList) { html += '</ul>'; inList = false; }
+    if (inOL)   { html += '</ol>'; inOL = false; }
+  };
+
+  for (const line of lines) {
+    const t = line.trim();
+
+    // Table row
+    if (t.startsWith('|')) {
+      flushLists();
+      const cells = t.split('|').slice(1,-1).map(c => c.trim());
+      if (cells.every(c => /^[-:]+$/.test(c))) { tableRows.push({ isSep: true }); continue; }
+      if (/^\*\*[^*]+\*\*$/.test(cells[0]) && cells.slice(1).every(c => c === '')) {
+        tableRows.push({ isCat: true, label: cells[0].replace(/\*\*/g,'') }); continue;
+      }
+      tableRows.push({ cells }); continue;
+    } else if (tableRows.length) { flushTable(); }
+
+    // Headings
+    if (/^#{1,4}\s/.test(t)) {
+      flushLists();
+      html += '<h3>' + inlineMd(esc(t.replace(/^#+\s+/,''))) + '</h3>';
+      continue;
+    }
+    // Bold-only line = sub-heading
+    if (/^\*\*[^*]+\*\*$/.test(t)) {
+      flushLists();
+      html += '<h4>' + t.replace(/\*\*/g,'') + '</h4>';
+      continue;
+    }
+    // Unordered list
+    if (t.startsWith('- ') || t.startsWith('* ')) {
+      if (!inList) { html += '<ul>'; inList = true; }
+      html += '<li>' + inlineMd(esc(t.slice(2))) + '</li>';
+      continue;
+    }
+    // Ordered list
+    if (/^\d+\.\s/.test(t)) {
+      if (!inOL) { html += '<ol>'; inOL = true; }
+      html += '<li>' + inlineMd(esc(t.replace(/^\d+\.\s/,''))) + '</li>';
+      continue;
+    }
+    // Horizontal rule — skip entirely
+    if (t === '---' || t === '***' || t === '___') continue;
+    // Paragraph
+    flushLists();
+    if (t) html += '<p>' + inlineMd(esc(t)) + '</p>';
+  }
+  flushTable(); flushLists();
+  return html;
+}
+
+function inlineMd(s) {
+  s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>');
+  s = s.replace(/\*([^*]+)\*/g,     '<em>$1</em>');
+  s = s.replace(/`([^`]+)`/g,       '<code>$1</code>');
+  s = s.replace(/\[VERIFY[^\]]*\]/g,'<span class="flag">$&</span>');
+  return s;
+}
+
+// ── SF SCOPE EXTRACTOR ─────────────────────────────────
+function extractSFScope(text) {
+  const lines = text.split('\n');
+  let inScope = false;
+  let scopeLines = [];
+
+  for (const line of lines) {
+    const t = line.trim();
+    if (/^#{1,3}\s*(2\.?\s*)?SCOPE OF WORK/i.test(t)) { inScope = true; continue; }
+    if (inScope && /^#{1,3}\s*(3\.?\s*)?PARTS|^#{1,3}\s*(4\.?\s*)?OPEN/i.test(t)) break;
+    if (inScope) scopeLines.push(line);
+  }
+
+  let raw = scopeLines.length ? scopeLines.join('\n') : text;
+
+  return raw
+    .replace(/^#{1,4}\s+\*?\*?([^*\n]+)\*?\*?/gm, (_, g) => g.trim() + ':')
+    .replace(/^[\s]*[-*]\s+/gm, '- ')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/[–—]/g, '-')
+    .replace(/`([^`]+)`/g, '$1')
+    .replace(/^-{3,}$/gm, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim();
+}
+</script>
+</body>
+</html>
